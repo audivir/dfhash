@@ -144,11 +144,17 @@ fn test_run(
     if expected_stdout.is_empty() || (equals && !print) {
         assert!(stdout_str.is_empty(), "Stdout should be empty");
     } else {
-        assert!(Regex::new(&expected_stdout).unwrap().is_match(&stdout_str), "Stdout missing content");
+        assert!(
+            Regex::new(&expected_stdout).unwrap().is_match(&stdout_str),
+            "Stdout missing content"
+        );
     }
 
     if !expected_stderr.is_empty() {
-        assert!(Regex::new(expected_stderr).unwrap().is_match(&stderr_str), "Stderr missing content");
+        assert!(
+            Regex::new(expected_stderr).unwrap().is_match(&stderr_str),
+            "Stderr missing content"
+        );
     } else {
         assert!(stderr_str.is_empty(), "Stderr should be empty");
     }
