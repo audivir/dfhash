@@ -18,8 +18,13 @@ struct Args {
 
     /// Check if all files are semantically equal to each other.
     /// Returns 0 if all match, 1 otherwise.
-    #[arg(long, short = 'e', group = "action", verbatim_doc_comment)]
+    #[arg(long, short = 'e', verbatim_doc_comment)]
     equals: bool,
+
+    /// Print hashes additionally to checking equality
+    /// (ignored if --equals is not set)
+    #[arg(long, short = 'p', verbatim_doc_comment)]
+    print: bool,
 }
 
 pub fn run(
@@ -27,6 +32,7 @@ pub fn run(
     error_writer: &mut impl Write,
     files: Vec<PathBuf>,
     equals: bool,
+    print: bool,
 ) -> Result<i32> {
     if files.is_empty() {
         writeln!(error_writer, "Error: No files provided")?;
@@ -35,15 +41,42 @@ pub fn run(
 
     if equals && files.len() < 2 {
         writeln!(error_writer, "Error: --equals requires at least two files.")?;
-        return Ok(1);
+        return Ok(2);
     }
 
     let mut exit_code = 0;
 
-    let mut frames: Vec<(&PathBuf, DataFrame)> = Vec::with_capacity(files.len());
+    let mut first_df: Option<DataFrame> = None;
+    let mut files_match = true;
+
     for path in &files {
         match load_sorted_frame(path) {
-            Ok(df) => frames.push((path, df)),
+            Ok(mut df) => {
+                if equals {
+                    if first_df.is_none() {
+                        first_df = Some(df.clone());
+                    } else {
+                        if !first_df.as_ref().unwrap().equals_missing(&df) {
+                            files_match = false;
+                            if !print {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if !equals || print {
+                    match compute_frame_hash(&mut df) {
+                        Ok(hash) => {
+                            writeln!(writer, "{}  {}", hash, path.display())?;
+                        }
+                        Err(e) => {
+                            writeln!(error_writer, "Error hashing {}: {}", path.display(), e)?;
+                            exit_code = 2;
+                        }
+                    }
+                }
+            }
             Err(e) => {
                 writeln!(error_writer, "Error loading {}: {}", path.display(), e)?;
                 exit_code = 2;
@@ -53,35 +86,12 @@ pub fn run(
 
     if equals {
         if exit_code != 0 {
-            writeln!(
-                error_writer,
-                "Warning: Cannot check for equality due to previous errors."
-            )?;
-        } else {
-            let first_df = &frames[0].1;
-            let all_equal = frames.iter().skip(1).all(|(_, df)| first_df.equals_missing(df));
-
-            if all_equal {
-                return Ok(0);
-            } else {
-                writeln!(error_writer, "Error: Files do not match.")?;
-                exit_code = 1;
-            }
+            writeln!(error_writer, "Warning: Cannot check for equality due to previous errors.")?;
+        } else if !files_match {
+            writeln!(error_writer, "Error: Files do not match.")?;
+            exit_code = 1;
         }
     }
-
-    for (path, mut df) in frames {
-        match compute_frame_hash(&mut df) {
-            Ok(hash) => {
-                writeln!(writer, "{}  {}", hash, path.display())?;
-            }
-            Err(e) => {
-                writeln!(error_writer, "Error hashing {}: {}", path.display(), e)?;
-                exit_code = 2;
-            }
-        }
-    }
-
     Ok(exit_code)
 }
 
@@ -92,6 +102,7 @@ fn main() {
         &mut std::io::stderr(),
         args.files,
         args.equals,
+        args.print,
     );
     match result {
         Ok(code) => std::process::exit(code),
