@@ -1,9 +1,13 @@
 use anyhow::Result;
 use clap::Parser;
 use dfhash::{compute_frame_hash, load_sorted_frame};
-use polars::prelude::DataFrame;
+use mimalloc::MiMalloc;
+use polars_core::prelude::DataFrame;
 use std::io::Write;
 use std::path::PathBuf;
+
+#[global_allocator]
+static ALLOC: MiMalloc = MiMalloc;
 
 #[cfg(test)]
 mod main_tests;
@@ -12,7 +16,7 @@ mod main_tests;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    /// Files to hash/check (CSV, Parquet, or Zstd-compressed CSV).
+    /// Files to hash/check (CSV, Parquet, or gzip/zlib/zstd-compressed CSV).
     #[arg(required = true, num_args = 1..)]
     files: Vec<PathBuf>,
 
@@ -53,14 +57,17 @@ pub fn run(
         match load_sorted_frame(path) {
             Ok(mut df) => {
                 if equals {
-                    if first_df.is_none() {
-                        first_df = Some(df.clone());
-                    } else {
-                        if !first_df.as_ref().unwrap().equals_missing(&df) {
-                            files_match = false;
-                            if !print {
-                                break;
+                    match &first_df {
+                        Some(base_df) => {
+                            if !base_df.equals_missing(&df) {
+                                files_match = false;
+                                if !print {
+                                    break;
+                                }
                             }
+                        }
+                        None => {
+                            first_df = Some(df.clone());
                         }
                     }
                 }

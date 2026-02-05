@@ -4,7 +4,7 @@ A deterministic content hasher for tabular data files.
 
 **dfhash** is a CLI tool designed to verify data integrity across different DataFrame file formats.
 It loads dataframes using **Polars**, sorts them by all columns to ensure determinism, and computes a stable SHA256 hash.
-It supports CSV, Parquet, and Zstd-compressed CSV files.
+It supports CSV, Parquet, and gzip/zlib/zstd-compressed CSV files.
 For consistency with CSV, null values are treated as equal to each other.
 
 ## Installation
@@ -16,7 +16,9 @@ Ensure you have Rust installed.
 ```bash
 git clone https://github.com/audivir/dfhash
 cd dfhash
-cargo build --release
+# https://github.com/pola-rs/polars/issues/26348
+rustup default nightly-2026-01-28
+RUSTFLAGS="-C target-cpu=native" cargo build --release -j$(nproc)
 cp target/release/dfhash ~/.local/bin/
 ```
 
@@ -39,7 +41,8 @@ dfhash --equals source.csv derived.parquet
 | Flag             | Description                                                                                   |
 | ---------------- | --------------------------------------------------------------------------------------------- |
 | `-e`, `--equals` | Check if all files are semantically equal to each other. Returns 0 if all match, 1 otherwise. |
-| `<files>`        | Files to hash/check. (CSV, Parquet, or Zstd-compressed CSV).                                  |
+| `-p`, `--print`  | Print hashes additionally to checking equality (ignored if `--equals` is not set).            |
+| `<files>`        | Files to hash/check. (CSV, Parquet, or gzip/zlib/zstd-compressed CSV).                        |
 
 ## License
 
@@ -47,6 +50,4 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ## TODO
 
-- verify that null values are handled correctly
-- add an option to not print hash if not equal to exit early
-- and to also not load all dataframes in memory at the beginning
+- add a fast hash method which randomly (with seed!) samples rows and columns to compute hash

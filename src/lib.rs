@@ -1,10 +1,16 @@
 use anyhow::{Context, Result};
-use polars::prelude::*;
+use polars_core::chunked_array::ops::SortMultipleOptions;
+use polars_core::prelude::DataFrame;
+use polars_io::prelude::CsvWriter;
+use polars_io::SerWriter;
+use polars_lazy::frame::ScanArgsParquet;
+use polars_lazy::prelude::{LazyCsvReader, LazyFileListReader, LazyFrame};
+use polars_utils::plpath::PlPath;
 use sha2::{Digest, Sha256};
 use std::io::{Cursor, Write};
 use std::path::Path;
 
-/// load a file into a lazy frame
+/// Load a file into a lazy frame
 fn load_frame(path: &Path) -> Result<LazyFrame> {
     let path_str = path.to_str().context("Invalid path string")?;
     let pl_path = PlPath::from_str(path_str);
