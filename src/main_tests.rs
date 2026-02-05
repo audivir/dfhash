@@ -21,12 +21,12 @@ enum FileFormat {
 type Content = (&'static str, &'static str, FileFormat);
 type PathElem = (&'static str, Content);
 
-const BASE: Content = ("a,b\n1,2\n3,4","b94", FileFormat::Csv);
-const REORDERED: Content = ("a,b\n3,4\n1,2","b94", FileFormat::Csv);
-const DIFFERENT: Content = ("a,b\n1,2\n9,9","3ac", FileFormat::Csv);
-const BASE_PARQUET: Content = ("a,b\n1,2\n3,4","b94", FileFormat::Parquet);
-const BASE_CSVZST: Content = ("a,b\n1,2\n3,4","b94", FileFormat::CsvZst);
-const BASE_CSVGZ: Content = ("a,b\n1,2\n3,4","b94", FileFormat::CsvGz);
+const BASE: Content = ("a,b\n1,2\n3,4", "b94", FileFormat::Csv);
+const REORDERED: Content = ("a,b\n3,4\n1,2", "b94", FileFormat::Csv);
+const DIFFERENT: Content = ("a,b\n1,2\n9,9", "3ac", FileFormat::Csv);
+const BASE_PARQUET: Content = ("a,b\n1,2\n3,4", "b94", FileFormat::Parquet);
+const BASE_CSVZST: Content = ("a,b\n1,2\n3,4", "b94", FileFormat::CsvZst);
+const BASE_CSVGZ: Content = ("a,b\n1,2\n3,4", "b94", FileFormat::CsvGz);
 
 const BASE_A: PathElem = ("a.csv", BASE);
 const BASE_B: PathElem = ("b.csv", BASE);
@@ -35,9 +35,9 @@ const DIFFERENT_B: PathElem = ("b.csv", DIFFERENT);
 const BASE_PARQUET_B: PathElem = ("b.parquet", BASE_PARQUET);
 const BASE_CSVZST_B: PathElem = ("b.csv.zst", BASE_CSVZST);
 const BASE_CSVGZ_B: PathElem = ("b.csv.gz", BASE_CSVGZ);
-const NULLS_A: PathElem = ("a.csv", ("a,b\n3,\n1,2\n,4\n,4","fac", FileFormat::Csv));
-const NULLS_REORDERED_B: PathElem = ("b.csv", ("a,b\n1,2\n3,\n,4\n,4","fac", FileFormat::Csv));
-const SPECIAL_A: PathElem = ("a.csv", ("a,b\n1,2\n3,4","", FileFormat::Csv)); // no output
+const NULLS_A: PathElem = ("a.csv", ("a,b\n3,\n1,2\n,4\n,4", "fac", FileFormat::Csv));
+const NULLS_REORDERED_B: PathElem = ("b.csv", ("a,b\n1,2\n3,\n,4\n,4", "fac", FileFormat::Csv));
+const SPECIAL_A: PathElem = ("a.csv", ("a,b\n1,2\n3,4", "", FileFormat::Csv)); // no output
 const NONEXISTENT: PathElem = ("nonexistent", ("", "", FileFormat::Csv));
 
 /// build a regex pattern from a list of hash-name pairs
@@ -118,7 +118,7 @@ fn test_run(
     let temp = TempDir::new()?;
 
     let mut file_paths: Vec<PathBuf> = Vec::new();
-    for (name, (content,_, format)) in &args {
+    for (name, (content, _, format)) in &args {
         if *name == "nonexistent" {
             file_paths.push(PathBuf::from("nonexistent"));
             continue;
@@ -135,35 +135,22 @@ fn test_run(
     let stdout_str = String::from_utf8(stdout)?;
     let stderr_str = String::from_utf8(stderr)?;
 
+    println!("stdout: {}", stdout_str);
+    println!("stderr: {}", stderr_str);
+
     assert_eq!(exit_code, expected_code, "Exit code mismatch");
 
     let expected_stdout = build_pattern(args);
     if expected_stdout.is_empty() || (equals && !print) {
-        assert_eq!(
-            stdout_str, "",
-            "Stdout should be empty.\nGot: {}",
-            stdout_str
-        );
+        assert!(stdout_str.is_empty(), "Stdout should be empty");
     } else {
-        assert!(
-            Regex::new(&expected_stdout).unwrap().is_match(&stdout_str),
-            "Stdout missing content.\nGot: {}",
-            stdout_str
-        );
+        assert!(Regex::new(&expected_stdout).unwrap().is_match(&stdout_str), "Stdout missing content");
     }
 
     if !expected_stderr.is_empty() {
-        assert!(
-            Regex::new(expected_stderr).unwrap().is_match(&stderr_str),
-            "Stderr missing content.\nGot: {}",
-            stderr_str
-        );
+        assert!(Regex::new(expected_stderr).unwrap().is_match(&stderr_str), "Stderr missing content");
     } else {
-        assert_eq!(
-            stderr_str, "",
-            "Stderr should be empty.\nGot: {}",
-            stderr_str
-        );
+        assert!(stderr_str.is_empty(), "Stderr should be empty");
     }
 
     Ok(())

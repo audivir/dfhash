@@ -3,16 +3,16 @@ use polars::prelude::*;
 use sha2::{Digest, Sha256};
 use std::io::{Cursor, Write};
 use std::path::Path;
-
 /// load a file into a lazy frame
 fn load_frame(path: &Path) -> Result<LazyFrame> {
     let path_str = path.to_str().context("Invalid path string")?;
+    let pl_path = PlPath::from_str(path_str);
 
     if path_str.ends_with(".parquet") {
         let args = ScanArgsParquet::default();
-        LazyFrame::scan_parquet(path, args).context("Failed to scan parquet")
+        LazyFrame::scan_parquet(pl_path, args).context("Failed to scan parquet")
     } else {
-        LazyCsvReader::new(path)
+        LazyCsvReader::new(pl_path)
             .finish()
             .context("Failed to scan CSV")
     }

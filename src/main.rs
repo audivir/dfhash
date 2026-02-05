@@ -86,7 +86,10 @@ pub fn run(
 
     if equals {
         if exit_code != 0 {
-            writeln!(error_writer, "Warning: Cannot check for equality due to previous errors.")?;
+            writeln!(
+                error_writer,
+                "Warning: Cannot check for equality due to previous errors."
+            )?;
         } else if !files_match {
             writeln!(error_writer, "Error: Files do not match.")?;
             exit_code = 1;
