@@ -33,6 +33,8 @@ const DIFFERENT_B: PathElem = ("b.csv", DIFFERENT);
 const BASE_PARQUET_B: PathElem = ("b.parquet", BASE_PARQUET);
 const BASE_CSVZST_B: PathElem = ("b.csv.zst", BASE_CSVZST);
 const BASE_CSVGZ_B: PathElem = ("b.csv.gz", BASE_CSVGZ);
+const NULLS_A: PathElem = ("a.csv", ("a,b\n3,\n1,2\n,4\n,4", FileFormat::Csv));
+const NULLS_REORDERED_B: PathElem = ("b.csv", ("a,b\n1,2\n3,\n,4\n,4", FileFormat::Csv));
 const NONEXISTENT: PathElem = ("nonexistent", ("", FileFormat::Csv));
 
 /// Create different file formats from the same CSV content
@@ -71,7 +73,7 @@ fn create_file(dir: &TempDir, name: &str, content: &str, format: FileFormat) -> 
 #[case(vec![], false, 2, "", "^Error: No files provided\\n$")]
 #[case(vec![BASE_A], false, 0, "^b94\\w+ [\\w/\\\\. ]+/a.csv\\n$", "")]
 #[case(vec![NONEXISTENT], false, 2, "", "^Error loading nonexistent: [\\w():/\\\\.' ]+\\n$")]
-#[case(vec![BASE_A], true, 1, "", "^Error: --equal requires at least two files\\.\\n$")]
+#[case(vec![BASE_A], true, 1, "", "^Error: --equals requires at least two files\\.\\n$")]
 #[case(vec![BASE_A, BASE_B], false, 0, "^b94\\w+ [\\w/\\\\. ]+/a.csv\\nb94\\w+ [\\w/\\\\. ]+/b.csv\\n$", "")]
 #[case(vec![BASE_A, BASE_B], true, 0, "", "")]
 #[case(vec![BASE_A, BASE_B, NONEXISTENT], false, 2, "^b94\\w+ [\\w/\\\\. ]+/a.csv\\nb94\\w+ [\\w/\\\\. ]+/b.csv\\n$", "^Error loading nonexistent: [\\w():/\\\\.' ]+\\n$")]
@@ -86,6 +88,8 @@ fn create_file(dir: &TempDir, name: &str, content: &str, format: FileFormat) -> 
 #[case(vec![BASE_A, BASE_CSVZST_B], true, 0, "", "")]
 #[case(vec![BASE_A, BASE_CSVGZ_B], false, 0, "^b94\\w+ [\\w/\\\\. ]+/a.csv\\nb94\\w+ [\\w/\\\\. ]+/b.csv.gz\\n$", "")]
 #[case(vec![BASE_A, BASE_CSVGZ_B], true, 0, "", "")]
+#[case(vec![NULLS_A, NULLS_REORDERED_B], false, 0, "^fac\\w+ [\\w/\\\\. ]+/a.csv\\nfac\\w+ [\\w/\\\\. ]+/b.csv\\n$", "")]
+#[case(vec![NULLS_A, NULLS_REORDERED_B], true, 0, "", "")]
 fn test_run(
     #[case] args: Vec<PathElem>,
     #[case] equals: bool,

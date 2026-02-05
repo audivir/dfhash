@@ -34,7 +34,7 @@ pub fn run(
     }
 
     if equals && files.len() < 2 {
-        writeln!(error_writer, "Error: --equal requires at least two files.")?;
+        writeln!(error_writer, "Error: --equals requires at least two files.")?;
         return Ok(1);
     }
 
@@ -59,7 +59,7 @@ pub fn run(
             )?;
         } else {
             let first_df = &frames[0].1;
-            let all_equal = frames.iter().skip(1).all(|(_, df)| first_df.equals(df));
+            let all_equal = frames.iter().skip(1).all(|(_, df)| first_df.equals_missing(df));
 
             if all_equal {
                 return Ok(0);

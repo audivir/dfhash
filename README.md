@@ -5,6 +5,7 @@ A deterministic content hasher for tabular data files.
 **dfhash** is a CLI tool designed to verify data integrity across different DataFrame file formats.
 It loads dataframes using **Polars**, sorts them by all columns to ensure determinism, and computes a stable SHA256 hash.
 It supports CSV, Parquet, and Zstd-compressed CSV files.
+For consistency with CSV, null values are treated as equal to each other.
 
 ## Installation
 
@@ -43,3 +44,9 @@ dfhash --equals source.csv derived.parquet
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+
+## TODO
+
+- verify that null values are handled correctly
+- add an option to not print hash if not equal to exit early
+- and to also not load all dataframes in memory at the beginning
