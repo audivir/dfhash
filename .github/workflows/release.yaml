@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            use-cross: true
+            name: dfhash-linux-arm64
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            use-cross: true
+            name: dfhash-linux-amd64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            use-cross: false
+            name: dfhash-darwin-arm64
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            use-cross: false
+            name: dfhash-darwin-amd64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            use-cross: false
+            name: dfhash-windows-amd64.exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - name: Install Cross
+        if: matrix.use-cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build Binary
+        run: |
+          BUILDER="cargo"
+          if [ "${{ matrix.use-cross }}" = "true" ]; then BUILDER="cross"; fi
+
+          $BUILDER build --release --target ${{ matrix.target }}
+
+          BIN_NAME="dfhash"
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then BIN_NAME="dfhash.exe"; fi
+
+          mkdir -p ./dist
+          cp target/${{ matrix.target }}/release/$BIN_NAME ./dist/${{ matrix.name }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: dist/*
+          retention-days: 1
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: all-dist
+          merge-multiple: true
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: all-dist/*
