@@ -45,7 +45,8 @@ struct Args {
     #[arg(long, short = 'd')]
     diff: bool,
 
-    /// Pipe diff output through a pager (like less). Only active with --diff.
+    /// Pipe diff output through a pager (Unix only). Only active with --diff.
+    /// Forces colored output if --no-color is not set (all OSes).
     #[arg(long)]
     pager: bool,
 
@@ -59,10 +60,14 @@ pub fn run_diff(
     error_writer: &mut impl Write,
     file_a: &Path,
     file_b: &Path,
-    pager: bool,
+    ctx: Context,
 ) -> Result<i32> {
-    if pager {
-        pager::Pager::with_pager("less -R").setup();
+    if ctx.pager {
+        if !ctx.no_color {
+            colored::control::set_override(true);
+        }
+        #[cfg(unix)]
+        pager2::Pager::with_pager("less -R").setup();
     }
 
     let mut df1 = match load_sorted_frame(file_a) {
@@ -128,7 +133,7 @@ pub fn run(
             writeln!(error_writer, "Error: --diff requires exactly two files.")?;
             return Ok(2);
         }
-        return run_diff(writer, error_writer, &files[0], &files[1], ctx.pager);
+        return run_diff(writer, error_writer, &files[0], &files[1], ctx);
     }
 
     if ctx.equals && files.len() < 2 {

@@ -1,27 +1,27 @@
 [package]
 name = "dfhash"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 
 [dependencies]
 anyhow = "1.0"
 clap = { version = "4.4", features = ["derive"] }
-polars-core = { version = "0.52", default-features = false, features = [
+polars-core = { version = "0.53", default-features = false, features = [
     "dtype-struct",
     "nightly",
     "performant",
     "simd",
 ] }
-polars-io = { version = "0.52", default-features = false, features = [
+polars-io = { version = "0.53", default-features = false, features = [
     "decompress",
 ] }
-polars-lazy = { version = "0.52", default-features = false, features = [
+polars-lazy = { version = "0.53", default-features = false, features = [
     "csv",
     "parquet",
     "new_streaming",
 ] }
-polars-plan = { version = "0.52", default-features = false, features = ["cse"] }
-polars-utils = { version = "0.52", default-features = false }
+polars-plan = { version = "0.53", default-features = false, features = ["cse"] }
+polars-utils = { version = "0.53", default-features = false }
 flate2 = "1.0"
 zstd = "0.13"
 
@@ -31,7 +31,7 @@ mimalloc = { version = "0.1", default-features = false }
 
 similar = "2.3"
 colored = "2.0"
-pager = "0.16"
+pager2 = "0.6"
 
 [dev-dependencies]
 rstest = "0.18"

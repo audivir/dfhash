@@ -38,14 +38,14 @@ dfhash --equals source.csv derived.parquet
 
 ### Options
 
-| Flag             | Description                                                                                   |
-| ---------------- | --------------------------------------------------------------------------------------------- |
-| `<files>`        | Files to hash/check. (CSV, Parquet, or gzip/zlib/zstd-compressed CSV).                        |
-| `-e`, `--equals` | Check if all files are semantically equal to each other. Returns 0 if all match, 1 otherwise. |
-| `-p`, `--print`  | Print hashes additionally to checking equality. Only active with --equals.                    |
-| `-d`, `--diff`   | Show a git-style diff between exactly two files.                                              |
-| `--pager`        | Pipe diff output through a pager (like less). Only active with --diff.                        |
-| `--no-color`     | Disable colored output.                                                                       |
+| Flag             | Description                                                                                                                       |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `<files>`        | Files to hash/check. (CSV, Parquet, or gzip/zlib/zstd-compressed CSV).                                                            |
+| `-e`, `--equals` | Check if all files are semantically equal to each other. Returns 0 if all match, 1 otherwise.                                     |
+| `-p`, `--print`  | Print hashes additionally to checking equality. Only active with --equals.                                                        |
+| `-d`, `--diff`   | Show a git-style diff between exactly two files.                                                                                  |
+| `--pager`        | Pipe diff output through a pager (Unix only). Only active with --diff. Forces colored output if --no-color is not set (all OSes). |
+| `--no-color`     | Disable colored output.                                                                                                           |
 
 ## License
 
