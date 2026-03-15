@@ -1,7 +1,7 @@
 [package]
 name = "dfhash"
-version = "0.1.2"
-edition = "2021"
+version = "0.1.3"
+edition = "2024"
 
 [dependencies]
 anyhow = "1.0"
@@ -29,6 +29,9 @@ sha2 = "0.10"
 hex = "0.4"
 mimalloc = { version = "0.1", default-features = false }
 
+similar = "2.3"
+colored = "2.0"
+pager = "0.16"
 
 [dev-dependencies]
 rstest = "0.18"

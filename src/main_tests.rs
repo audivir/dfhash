@@ -1,164 +1,208 @@
-use super::run;
+use super::{run, Context};
 use anyhow::Result;
-use flate2::write::GzEncoder;
-use flate2::Compression;
-use polars_io::prelude::{CsvReader, ParquetWriter};
-use polars_io::SerReader;
 use regex::Regex;
 use rstest::rstest;
-use std::fs::File;
-use std::io::{Cursor, Write};
-use std::path::PathBuf;
-use tempfile::TempDir;
+use std::fs;
+use std::path::{Path, PathBuf};
 
-#[derive(Clone, Copy)]
-enum FileFormat {
-    Csv,
-    Parquet,
-    CsvZst,
-    CsvGz,
-}
+const A_BASE: &str = "fixtures/a_base.csv";
+const A_BASE_GZ: &str = "fixtures/a_base.csv.gz";
+const A_BASE_ZST: &str = "fixtures/a_base.csv.zst";
+const A_BASE_PARQUET: &str = "fixtures/a_base.parquet";
+const B_DIFF: &str = "fixtures/b_diff.csv";
+const C_ORDER: &str = "fixtures/c_order.csv";
+const D_NULLS: &str = "fixtures/d_nulls.csv";
+const E_NULLS_ORDER: &str = "fixtures/e_nulls_order.csv";
+const NONEXISTENT: &str = "/nonexistent";
+const NODATAFRAME: &str = "fixtures/no_dataframe";
 
-type Content = (&'static str, &'static str, FileFormat);
-type PathElem = (&'static str, Content);
+// Get the corresponding .hash file for each input
+fn get_expected_hash(file_path: &str) -> String {
+    let path = Path::new(file_path);
+    let file_stem = path.file_name().unwrap().to_str().unwrap();
 
-const BASE: Content = ("a,b\n1,2\n3,4", "b94", FileFormat::Csv);
-const REORDERED: Content = ("a,b\n3,4\n1,2", "b94", FileFormat::Csv);
-const DIFFERENT: Content = ("a,b\n1,2\n9,9", "3ac", FileFormat::Csv);
-const BASE_PARQUET: Content = ("a,b\n1,2\n3,4", "b94", FileFormat::Parquet);
-const BASE_CSVZST: Content = ("a,b\n1,2\n3,4", "b94", FileFormat::CsvZst);
-const BASE_CSVGZ: Content = ("a,b\n1,2\n3,4", "b94", FileFormat::CsvGz);
+    // Extract the base name before the first dot (e.g., "a_base")
+    let base_name = file_stem.split('.').next().unwrap();
+    let hash_path = path.with_file_name(format!("{}.hash", base_name));
 
-const BASE_A: PathElem = ("a.csv", BASE);
-const BASE_B: PathElem = ("b.csv", BASE);
-const REORDERED_B: PathElem = ("b.csv", REORDERED);
-const DIFFERENT_B: PathElem = ("b.csv", DIFFERENT);
-const BASE_PARQUET_B: PathElem = ("b.parquet", BASE_PARQUET);
-const BASE_CSVZST_B: PathElem = ("b.csv.zst", BASE_CSVZST);
-const BASE_CSVGZ_B: PathElem = ("b.csv.gz", BASE_CSVGZ);
-const NULLS_A: PathElem = ("a.csv", ("a,b\n3,\n1,2\n,4\n,4", "fac", FileFormat::Csv));
-const NULLS_REORDERED_B: PathElem = ("b.csv", ("a,b\n1,2\n3,\n,4\n,4", "fac", FileFormat::Csv));
-const SPECIAL_A: PathElem = ("a.csv", ("a,b\n1,2\n3,4", "", FileFormat::Csv)); // no output
-const NONEXISTENT: PathElem = ("nonexistent", ("", "", FileFormat::Csv));
-
-/// build a regex pattern from a list of hash-name pairs
-fn build_pattern(args: Vec<PathElem>) -> String {
-    // goal: ^hash\w+ [\\w/\\\\. ]+/name\\n...same for all pairs$
-    let mut pattern = String::new();
-    pattern.push_str("^");
-    for (name, (_, hash, _)) in args {
-        if hash == "" {
-            continue;
-        }
-        pattern.push_str(&format!("{}\\w+ [\\w/\\\\. ]+/{}\\n", hash, name));
-    }
-    pattern.push_str("$");
-    pattern
-}
-
-/// Create different file formats from the same CSV content
-fn create_file(dir: &TempDir, name: &str, content: &str, format: FileFormat) -> std::path::PathBuf {
-    let path = dir.path().join(name);
-    let mut file = File::create(&path).unwrap();
-
-    match format {
-        FileFormat::Csv => {
-            // write raw csv string to file
-            file.write_all(content.as_bytes()).unwrap();
-        }
-        FileFormat::CsvZst => {
-            // compress raw csv string into zstd
-            let mut encoder = zstd::Encoder::new(file, 0).unwrap();
-            encoder.write_all(content.as_bytes()).unwrap();
-            encoder.finish().unwrap();
-        }
-        FileFormat::CsvGz => {
-            // compress raw csv string into gzip
-            let mut encoder = GzEncoder::new(file, Compression::default());
-            encoder.write_all(content.as_bytes()).unwrap();
-            encoder.finish().unwrap();
-        }
-        FileFormat::Parquet => {
-            // load content into Polars DataFrame write out as Parquet
-            let cursor = Cursor::new(content.as_bytes());
-            let mut df = CsvReader::new(cursor).finish().unwrap();
-            ParquetWriter::new(&mut file).finish(&mut df).unwrap();
-        }
-    }
-    path
+    fs::read_to_string(&hash_path)
+        .unwrap_or_else(|_| panic!("Missing expected hash file: {}", hash_path.display()))
+        .trim()
+        .to_string()
 }
 
 #[rstest]
-#[case(vec![], false, 2, "^Error: No files provided\\n$")]
-#[case(vec![BASE_A], false, 0, "")]
-#[case(vec![NONEXISTENT], false, 2, "^Error loading nonexistent: [\\w():/\\\\.' ]+\\n$")]
-#[case(vec![SPECIAL_A], true, 2, "^Error: --equals requires at least two files\\.\\n$")]
-#[case(vec![BASE_A, BASE_B], false, 0, "")]
-#[case(vec![BASE_A, BASE_B], true, 0, "")]
-#[case(vec![BASE_A, BASE_B, NONEXISTENT], false, 2, "^Error loading nonexistent: [\\w():/\\\\.' ]+\\n$")]
-#[case(vec![BASE_A, BASE_B, NONEXISTENT], true, 2, "^Error loading nonexistent: [\\w():/\\\\.' ]+\\nWarning: Cannot check for equality due to previous errors.\\n$")]
-#[case(vec![BASE_A, REORDERED_B], false, 0, "")]
-#[case(vec![BASE_A, REORDERED_B], true, 0, "")]
-#[case(vec![BASE_A, DIFFERENT_B], false, 0, "")]
-#[case(vec![BASE_A, DIFFERENT_B], true, 1, "^Error: Files do not match.\\n$")]
-#[case(vec![BASE_A, BASE_PARQUET_B], false, 0, "")]
-#[case(vec![BASE_A, BASE_PARQUET_B], true, 0, "")]
-#[case(vec![BASE_A, BASE_CSVZST_B], false, 0, "")]
-#[case(vec![BASE_A, BASE_CSVZST_B], true, 0, "")]
-#[case(vec![BASE_A, BASE_CSVGZ_B], false, 0, "")]
-#[case(vec![BASE_A, BASE_CSVGZ_B], true, 0, "")]
-#[case(vec![NULLS_A, NULLS_REORDERED_B], false, 0, "")]
-#[case(vec![NULLS_A, NULLS_REORDERED_B], true, 0, "")]
+#[case(vec![], false, 2, "^Error: No files provided\n$")]
+#[case(vec![A_BASE], false, 0, "")]
+#[case(vec![A_BASE], true, 2, "^Error: --equals requires at least two files\\.\n$")]
+#[case(vec![NONEXISTENT], false, 2, "^Error loading [/\\\\]nonexistent: .*\n$")]
+#[case(vec![NODATAFRAME], false, 2, "^Error loading fixtures[/\\\\]no_dataframe: Failed to collect DataFrame\n$")]
+#[case(vec![A_BASE, A_BASE], false, 0, "")]
+#[case(vec![A_BASE, A_BASE], true, 0, "")]
+#[case(vec![A_BASE, C_ORDER], false, 0, "")] // Different row order, same semantic content
+#[case(vec![A_BASE, C_ORDER], true, 0, "")]
+#[case(vec![D_NULLS, E_NULLS_ORDER], false, 0, "")] // Nulls handled correctly
+#[case(vec![D_NULLS, E_NULLS_ORDER], true, 0, "")]
+#[case(vec![A_BASE, B_DIFF], false, 0, "")]
+#[case(vec![A_BASE, B_DIFF], true, 1, "^Error: Files do not match\\.\n$")] // Mismatch
+#[case(vec![A_BASE, A_BASE_PARQUET, A_BASE_GZ, A_BASE_ZST], false, 0, "")]
+#[case(vec![A_BASE, A_BASE_PARQUET, A_BASE_GZ, A_BASE_ZST], true, 0, "")]
+#[case(vec![A_BASE, NONEXISTENT], false, 2, "^Error loading [/\\\\]nonexistent: .*\n$")]
+#[case(vec![A_BASE, NONEXISTENT], true, 2, "^Error loading [/\\\\]nonexistent: .*\nWarning: Cannot check for equality due to previous errors\\.\n$")]
 fn test_run(
     #[values(true, false)] print: bool,
-    #[case] args: Vec<PathElem>,
+    #[case] files: Vec<&str>,
     #[case] equals: bool,
     #[case] expected_code: i32,
     #[case] expected_stderr: &str,
 ) -> Result<()> {
-    let temp = TempDir::new()?;
-
-    let mut file_paths: Vec<PathBuf> = Vec::new();
-    for (name, (content, _, format)) in &args {
-        if *name == "nonexistent" {
-            file_paths.push(PathBuf::from("nonexistent"));
-            continue;
-        }
-        let p = create_file(&temp, name, content, *format);
-        file_paths.push(p);
-    }
-
+    let file_paths: Vec<PathBuf> = files.iter().map(PathBuf::from).collect();
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
 
-    let exit_code = run(&mut stdout, &mut stderr, file_paths, equals, print)?;
+    let ctx = Context {
+        equals,
+        print,
+        diff: false,
+        pager: false,
+        no_color: true,
+    };
+
+    let exit_code = run(&mut stdout, &mut stderr, file_paths, ctx)?;
 
     let stdout_str = String::from_utf8(stdout)?;
     let stderr_str = String::from_utf8(stderr)?;
 
-    println!("stdout: {}", stdout_str);
-    println!("stderr: {}", stderr_str);
-
     assert_eq!(exit_code, expected_code, "Exit code mismatch");
 
-    let expected_stdout = build_pattern(args);
-    if expected_stdout.is_empty() || (equals && !print) {
-        assert!(stdout_str.is_empty(), "Stdout should be empty");
-    } else {
+    if files.is_empty() || (equals && files.len() < 2) {
         assert!(
-            Regex::new(&expected_stdout).unwrap().is_match(&stdout_str),
-            "Stdout missing content"
+            stdout_str.is_empty(),
+            "Stdout should be empty on arg errors"
+        );
+    } else if equals && !print {
+        assert!(
+            stdout_str.is_empty(),
+            "Stdout should be empty when equals=true and print=false"
+        );
+    } else {
+        let mut expected_stdout = String::new();
+        for f in &files {
+            if matches!(*f, NONEXISTENT | NODATAFRAME) {
+                continue;
+            }
+            let hash = get_expected_hash(f);
+            let display_path = PathBuf::from(f);
+            expected_stdout.push_str(&format!("{}  {}\n", hash, display_path.display()));
+        }
+        assert_eq!(
+            stdout_str, expected_stdout,
+            "Stdout did not match expected hash file outputs"
         );
     }
 
-    if !expected_stderr.is_empty() {
+    // Evaluate expected stderr (still using regex since error messages contain variable data/paths)
+    if expected_stderr.is_empty() {
         assert!(
-            Regex::new(expected_stderr).unwrap().is_match(&stderr_str),
-            "Stderr missing content"
+            stderr_str.is_empty(),
+            "Stderr should be empty, got:\n{}",
+            stderr_str
         );
     } else {
-        assert!(stderr_str.is_empty(), "Stderr should be empty");
+        let re = Regex::new(expected_stderr).unwrap();
+        assert!(
+            re.is_match(&stderr_str),
+            "Stderr did not match expected pattern:\nRegex: {}\nStderr: {}",
+            expected_stderr,
+            stderr_str
+        );
     }
+
+    Ok(())
+}
+
+#[rstest]
+#[case(vec![A_BASE, B_DIFF], 1, true)] // Mismatching content -> diff printed, code 1
+#[case(vec![A_BASE, A_BASE], 0, false)] // Identical content -> nothing printed, code 0
+#[case(vec![A_BASE, C_ORDER], 0, false)] // Diff respects polars sorting -> nothing printed, code 0
+#[case(vec![A_BASE, A_BASE_PARQUET], 0, false)] // Formats abstracted away -> nothing printed, code 0
+fn test_diff_mode(
+    #[case] files: Vec<&str>,
+    #[case] expected_code: i32,
+    #[case] expect_stdout: bool,
+) -> Result<()> {
+    let file_paths: Vec<PathBuf> = files.iter().map(PathBuf::from).collect();
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+
+    let ctx = Context {
+        equals: false,
+        print: false,
+        diff: true,
+        pager: false,
+        no_color: true,
+    };
+
+    let exit_code = run(&mut stdout, &mut stderr, file_paths, ctx)?;
+
+    assert_eq!(exit_code, expected_code);
+
+    if expect_stdout {
+        assert!(
+            !stdout.is_empty(),
+            "Expected diff output in stdout, got empty"
+        );
+    } else {
+        assert!(
+            stdout.is_empty(),
+            "Expected empty stdout, got:\n{}",
+            String::from_utf8(stdout)?
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_hash_palette_coloring() -> Result<()> {
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+
+    let file_paths: Vec<std::path::PathBuf> = vec![A_BASE, A_BASE_PARQUET, B_DIFF]
+        .into_iter()
+        .map(std::path::PathBuf::from)
+        .collect();
+
+    let ctx = Context {
+        equals: false,
+        print: false,
+        diff: false,
+        pager: false,
+        no_color: false,
+    };
+
+    let exit_code = run(&mut stdout, &mut stderr, file_paths, ctx)?;
+
+    assert_eq!(exit_code, 0, "Expected exit code 0");
+
+    let stdout_str = String::from_utf8(stdout)?;
+    let lines: Vec<&str> = stdout_str.trim().lines().collect();
+
+    assert_eq!(lines.len(), 3, "Expected exactly three lines of output");
+
+    // first two files: green, third file: yellow
+    assert!(
+        lines[0].starts_with("\x1b[32m"),
+        "First line did not start with Green ANSI code"
+    );
+    assert!(
+        lines[1].starts_with("\x1b[32m"),
+        "Second line did not start with Green ANSI code"
+    );
+    assert!(
+        lines[2].starts_with("\x1b[33m"),
+        "Third line did not start with Green ANSI code"
+    );
 
     Ok(())
 }

@@ -43,15 +43,20 @@ pub fn load_sorted_frame(path: &Path) -> Result<DataFrame> {
     Ok(df)
 }
 
-/// Computes the hash of a dataframe
-pub fn compute_frame_hash(df: &mut DataFrame) -> Result<String> {
+/// Serializes a DataFrame into a raw CSV byte vector
+pub fn frame_to_csv(df: &mut DataFrame) -> Result<Vec<u8>> {
     let mut buffer = Cursor::new(Vec::new());
     CsvWriter::new(&mut buffer)
         .include_header(true)
         .finish(df)
         .context("Failed to serialize DataFrame")?;
+    Ok(buffer.into_inner())
+}
 
+/// Computes the hash of a dataframe
+pub fn compute_frame_hash(df: &mut DataFrame) -> Result<String> {
+    let buffer = frame_to_csv(df)?;
     let mut hasher = Sha256::new();
-    hasher.write_all(buffer.get_ref())?;
+    hasher.write_all(&buffer)?;
     Ok(hex::encode(hasher.finalize()))
 }
