@@ -31,6 +31,8 @@ mimalloc = { version = "0.1", default-features = false }
 
 similar = "2.3"
 colored = "2.0"
+
+[target.'cfg(unix)'.dependencies]
 pager2 = "0.6"
 
 [dev-dependencies]
