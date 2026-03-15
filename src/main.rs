@@ -37,7 +37,7 @@ struct Args {
     #[arg(long, short = 'e')]
     equals: bool,
 
-    /// Print hashes additionally to checking equality. Only active with --equals.
+    /// Print hashes additionally to checking equality. Only active with `--equals`.
     #[arg(long, short = 'p')]
     print: bool,
 
@@ -45,8 +45,8 @@ struct Args {
     #[arg(long, short = 'd')]
     diff: bool,
 
-    /// Pipe diff output through a pager (Unix only). Only active with --diff.
-    /// Forces colored output if --no-color is not set (all OSes).
+    /// Pipe diff output through a pager (Unix only). Only active with `--diff`.
+    /// Forces colored output if `--no-color` is not set (all OSes).
     #[arg(long)]
     pager: bool,
 
