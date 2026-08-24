@@ -1,20 +1,20 @@
-use super::{run, Context};
+use dfhash::{run, Context};
 use anyhow::Result;
 use regex::Regex;
 use rstest::rstest;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const A_BASE: &str = "fixtures/a_base.csv";
-const A_BASE_GZ: &str = "fixtures/a_base.csv.gz";
-const A_BASE_ZST: &str = "fixtures/a_base.csv.zst";
-const A_BASE_PARQUET: &str = "fixtures/a_base.parquet";
-const B_DIFF: &str = "fixtures/b_diff.csv";
-const C_ORDER: &str = "fixtures/c_order.csv";
-const D_NULLS: &str = "fixtures/d_nulls.csv";
-const E_NULLS_ORDER: &str = "fixtures/e_nulls_order.csv";
+const A_BASE: &str = "tests/fixtures/a_base.csv";
+const A_BASE_GZ: &str = "tests/fixtures/a_base.csv.gz";
+const A_BASE_ZST: &str = "tests/fixtures/a_base.csv.zst";
+const A_BASE_PARQUET: &str = "tests/fixtures/a_base.parquet";
+const B_DIFF: &str = "tests/fixtures/b_diff.csv";
+const C_ORDER: &str = "tests/fixtures/c_order.csv";
+const D_NULLS: &str = "tests/fixtures/d_nulls.csv";
+const E_NULLS_ORDER: &str = "tests/fixtures/e_nulls_order.csv";
 const NONEXISTENT: &str = "/nonexistent";
-const NODATAFRAME: &str = "fixtures/no_dataframe";
+const NODATAFRAME: &str = "tests/fixtures/no_dataframe";
 
 // Get the corresponding .hash file for each input
 fn get_expected_hash(file_path: &str) -> String {
@@ -36,7 +36,7 @@ fn get_expected_hash(file_path: &str) -> String {
 #[case(vec![A_BASE], false, 0, "")]
 #[case(vec![A_BASE], true, 2, "^Error: --equals requires at least two files\\.\n$")]
 #[case(vec![NONEXISTENT], false, 2, "^Error loading [/\\\\]nonexistent: .*\n$")]
-#[case(vec![NODATAFRAME], false, 2, "^Error loading fixtures[/\\\\]no_dataframe: Failed to collect DataFrame\n$")]
+#[case(vec![NODATAFRAME], false, 2, "^Error loading tests/fixtures[/\\\\]no_dataframe: Failed to collect DataFrame\n$")]
 #[case(vec![A_BASE, A_BASE], false, 0, "")]
 #[case(vec![A_BASE, A_BASE], true, 0, "")]
 #[case(vec![A_BASE, C_ORDER], false, 0, "")] // Different row order, same semantic content

@@ -11,13 +11,12 @@ For consistency with CSV, null values are treated as equal to each other.
 
 ### From Source
 
-Ensure you have Rust installed.
+Ensure you have Rust (via `rustup`) installed. Polars' `simd` feature requires a nightly
+toolchain; `rust-toolchain.toml` pins the tested version, so `rustup` selects it automatically.
 
 ```bash
 git clone https://github.com/audivir/dfhash
 cd dfhash
-# https://github.com/pola-rs/polars/issues/26348
-rustup default nightly-2026-01-28
 RUSTFLAGS="-C target-cpu=native" cargo build --release -j$(nproc)
 cp target/release/dfhash ~/.local/bin/
 ```
@@ -38,14 +37,14 @@ dfhash --equals source.csv derived.parquet
 
 ### Options
 
-| Flag             | Description                                                                                                                           |
+| Flag | Description |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `<files>`        | Files to hash/check. (CSV, Parquet, or gzip/zlib/zstd-compressed CSV).                                                                |
-| `-e`, `--equals` | Check if all files are semantically equal to each other. Returns 0 if all match, 1 otherwise.                                         |
-| `-p`, `--print`  | Print hashes additionally to checking equality. Only active with `--equals`.                                                          |
-| `-d`, `--diff`   | Show a git-style diff between exactly two files.                                                                                      |
-| `--pager`        | Pipe diff output through a pager (Unix only). Only active with `--diff`. Forces colored output if `--no-color` is not set (all OSes). |
-| `--no-color`     | Disable colored output.                                                                                                               |
+| `<files>` | Files to hash/check. (CSV, Parquet, or gzip/zlib/zstd-compressed CSV). |
+| `-e`, `--equals` | Check if all files are semantically equal to each other. Returns 0 if all match, 1 otherwise. |
+| `-p`, `--print` | Print hashes additionally to checking equality. Only active with `--equals`. |
+| `-d`, `--diff` | Show a git-style diff between exactly two files. |
+| `--pager` | Pipe diff output through a pager (Unix only). Only active with `--diff`. |
+| `--no-color` | Disable colored output. |
 
 ## License
 

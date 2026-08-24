@@ -1,0 +1,9 @@
+# Changes here will be overwritten by Copier
+_commit: 497ef93
+_src_path: gh:audivir/copier-template
+description: A deterministic content hasher for tabular data files
+github_org: audivir
+project_name: dfhash
+project_slug: dfhash
+project_type: rust
+publishable: true

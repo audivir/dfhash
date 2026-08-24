@@ -1,42 +1,43 @@
 [package]
 name = "dfhash"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
+description = "A deterministic content hasher for tabular data files"
 
 [dependencies]
 anyhow = "1.0"
 clap = { version = "4.4", features = ["derive"] }
-polars-core = { version = "0.53", default-features = false, features = [
-    "dtype-struct",
-    "nightly",
-    "performant",
-    "simd",
+polars-core = { version = "0.55", default-features = false, features = [
+  "dtype-struct",
+  "nightly",
+  "performant",
+  "simd",
 ] }
-polars-io = { version = "0.53", default-features = false, features = [
-    "decompress",
+polars-io = { version = "0.55", default-features = false, features = [
+  "decompress",
 ] }
-polars-lazy = { version = "0.53", default-features = false, features = [
-    "csv",
-    "parquet",
-    "new_streaming",
+polars-lazy = { version = "0.55", default-features = false, features = [
+  "csv",
+  "parquet",
+  "streaming",
 ] }
-polars-plan = { version = "0.53", default-features = false, features = ["cse"] }
-polars-utils = { version = "0.53", default-features = false }
+polars-plan = { version = "0.55", default-features = false, features = ["cse"] }
+polars-utils = { version = "0.55", default-features = false }
 flate2 = "1.0"
 zstd = "0.13"
 
-sha2 = "0.10"
+sha2 = "0.11"
 hex = "0.4"
 mimalloc = { version = "0.1", default-features = false }
 
-similar = "2.3"
-colored = "2.0"
+similar = "3.0"
+colored = "3.0"
 
 [target.'cfg(unix)'.dependencies]
 pager2 = "0.6"
 
 [dev-dependencies]
-rstest = "0.18"
+rstest = "0.26"
 tempfile = "3.10"
 regex = "1.10"
 
